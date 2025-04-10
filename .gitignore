@@ -176,7 +176,7 @@ cython_debug/
 ### Obsidian ###
 # config dir
 .obsidian/
-
+.idea
 ### Python ###
 # Byte-compiled / optimized / DLL files
 
