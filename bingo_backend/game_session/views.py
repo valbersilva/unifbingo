@@ -36,6 +36,30 @@ class GameSessionViewSet(viewsets.ModelViewSet):
 
         return Response(DrawnNumberSerializer(draw).data, status=status.HTTP_201_CREATED)
 
+    @action(detail=True, methods=['post'], url_path='end')
+    def end_session(self, request, pk=None):
+        session = get_object_or_404(GameSession, pk=pk)
+
+        # Apenas o criador da sala pode encerrar
+        if request.user != session.room.created_by and request.user.role != 'admin':
+            return Response({"detail": "Only the creator of the room or an admin can end this session."},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        if not session.is_active:
+            return Response({"detail": "This session is already ended."}, status=status.HTTP_400_BAD_REQUEST)
+
+        session.is_active = False
+        session.save()
+
+        GameAuditLog.objects.create(
+            session=session,
+            actor=request.user,
+            action="Ended the game session"
+        )
+
+        return Response({"detail": "Game session successfully ended."}, status=status.HTTP_200_OK)
+
+
 class DrawnNumberViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = DrawnNumber.objects.all()
     serializer_class = DrawnNumberSerializer
@@ -46,6 +70,7 @@ class DrawnNumberViewSet(viewsets.ReadOnlyModelViewSet):
         if session_id:
             return self.queryset.filter(session__id=session_id)
         return self.queryset.none()
+
 
 class GameAuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = GameAuditLog.objects.all()

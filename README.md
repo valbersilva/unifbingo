@@ -228,6 +228,16 @@ Base URL: `/api/game-sessions/`
 }
 ```
 
+### End session *(only creator or admin)*
+**POST** `/api/game-sessions/{session_id}/end/`
+
+**Response**
+```json
+{
+  "detail": "Game session successfully ended."
+}
+```
+
 ---
 
 ## 🔢 Drawn Numbers API
