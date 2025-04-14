@@ -3,9 +3,15 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
-from .models import GameSession, DrawnNumber, GameAuditLog
-from .serializers import GameSessionSerializer, DrawnNumberSerializer, GameAuditLogSerializer
+from .models import GameSession, DrawnNumber, GameAuditLog, GameHistory
+from .serializers import (
+    GameSessionSerializer,
+    DrawnNumberSerializer,
+    GameAuditLogSerializer,
+    GameHistorySerializer
+)
 import random
+
 
 class GameSessionViewSet(viewsets.ModelViewSet):
     queryset = GameSession.objects.all()
@@ -55,6 +61,8 @@ class GameSessionViewSet(viewsets.ModelViewSet):
             actor=request.user,
             action="Ended the game session"
         )
+
+        self._save_history(session)
 
         return Response({"detail": "Game session successfully ended."}, status=status.HTTP_200_OK)
 
@@ -112,7 +120,21 @@ class GameSessionViewSet(viewsets.ModelViewSet):
             action=f"🎉 BINGO VALIDATED — WINNER by {pattern}"
         )
 
+        self._save_history(session)
+
         return Response({"detail": f"🎉 BINGO! You are the winner by {pattern}."}, status=200)
+
+    def _save_history(self, session):
+        GameHistory.objects.create(
+            session=session,
+            room_code=session.room.room_code,
+            winner=session.winner,
+            winning_card_hash=session.winning_card.card_hash if session.winning_card else None,
+            drawn_numbers=list(session.draws.values_list('number', flat=True)),
+            started_at=session.created_at,
+            is_completed=True
+        )
+
 
 class DrawnNumberViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = DrawnNumber.objects.all()
@@ -125,6 +147,7 @@ class DrawnNumberViewSet(viewsets.ReadOnlyModelViewSet):
             return self.queryset.filter(session__id=session_id)
         return self.queryset.none()
 
+
 class GameAuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = GameAuditLog.objects.all()
     serializer_class = GameAuditLogSerializer
@@ -135,3 +158,9 @@ class GameAuditLogViewSet(viewsets.ReadOnlyModelViewSet):
         if session_id:
             return self.queryset.filter(session__id=session_id)
         return self.queryset.none()
+
+
+class GameHistoryViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = GameHistory.objects.all()
+    serializer_class = GameHistorySerializer
+    permission_classes = [IsAuthenticated]
