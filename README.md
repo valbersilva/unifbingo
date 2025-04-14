@@ -238,6 +238,18 @@ Base URL: `/api/game-sessions/`
 }
 ```
 
+### Validate bingo *(check if current user has a valid bingo)*
+**POST** `/api/game-sessions/{session_id}/validate-bingo/`
+
+**Responses**
+```json
+{ "detail": "BINGO! Valid row." }
+{ "detail": "BINGO! Valid column." }
+{ "detail": "BINGO! Valid main diagonal." }
+{ "detail": "BINGO! Valid anti-diagonal." }
+{ "detail": "BINGO is not valid." }
+```
+
 ---
 
 ## 🔢 Drawn Numbers API
@@ -294,7 +306,7 @@ unifbingo/
 │   └── urls.py
 ├── game_session/
 │   ├── models.py         # GameSession, DrawnNumber, GameAuditLog
-│   ├── views.py          # Sorteio e controle de partida
+│   ├── views.py          # Sorteio, encerramento e validação de bingo
 │   ├── serializers.py
 │   └── urls.py
 ```
@@ -303,7 +315,6 @@ unifbingo/
 
 ## ✅ Todo (futuro)
 
-- [ ] Validação automática de bingo
 - [ ] Registro de partidas
 - [ ] Ranking e estatísticas
 
