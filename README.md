@@ -255,6 +255,7 @@ Base URL: `/api/game-sessions/`
 - Ao detectar o primeiro BINGO válido, o sistema encerra automaticamente a sessão (`is_active = False`)
 - Armazena o usuário e a cartela vencedora nos campos `winner` e `winning_card`
 - Registra log no `GameAuditLog`
+- Cria automaticamente um `GameHistory` com todos os detalhes da sessão
 
 ---
 
@@ -291,6 +292,34 @@ This log is isolated from user audit and tracks only game events.
 
 ---
 
+## 🗃️ Game History API
+
+Base URL: `/api/game-history/`
+
+### List all historical games
+**GET** `/api/game-history/`
+
+**Response**
+```json
+[
+  {
+    "id": "history-uuid",
+    "session": "session-uuid",
+    "room_code": "ABC-123",
+    "winner_username": "player1",
+    "winning_card_hash": "abcdef123456...",
+    "drawn_numbers": [5, 12, 33, 49, ...],
+    "started_at": "2025-04-13T22:00:00Z",
+    "ended_at": "2025-04-13T22:15:00Z",
+    "is_completed": true
+  }
+]
+```
+
+Esse histórico é criado automaticamente ao final de cada partida.
+
+---
+
 ## 📂 Project Structure (simplificado)
 
 ```
@@ -311,8 +340,8 @@ unifbingo/
 │   ├── permissions.py    # IsHostOrAdmin
 │   └── urls.py
 ├── game_session/
-│   ├── models.py         # GameSession, DrawnNumber, GameAuditLog
-│   ├── views.py          # Sorteio, encerramento e validação de bingo com vitória
+│   ├── models.py         # GameSession, DrawnNumber, GameAuditLog, GameHistory
+│   ├── views.py          # Sorteio, encerramento, validação de bingo, histórico
 │   ├── serializers.py
 │   └── urls.py
 ```
@@ -321,7 +350,6 @@ unifbingo/
 
 ## ✅ Todo (futuro)
 
-- [ ] Registro histórico de partidas completas
 - [ ] Ranking e estatísticas por jogador
 
 ---
