@@ -1,5 +1,5 @@
 from django.db import models
-from bingo_room.models import BingoRoom
+from bingo_room.models import BingoRoom, BingoCard
 from users.models import User
 import uuid
 
@@ -8,6 +8,8 @@ class GameSession(models.Model):
     room = models.OneToOneField(BingoRoom, on_delete=models.CASCADE, related_name='game_session')
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
+    winner = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='won_sessions')
+    winning_card = models.ForeignKey(BingoCard, null=True, blank=True, on_delete=models.SET_NULL, related_name='winning_sessions')
 
     def __str__(self):
         return f"Game for Room {self.room.room_code}"

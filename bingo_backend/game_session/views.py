@@ -67,6 +67,9 @@ class GameSessionViewSet(viewsets.ModelViewSet):
         if not session.is_active:
             return Response({"detail": "Game session is already ended."}, status=400)
 
+        if session.winner:
+            return Response({"detail": "A winner has already been declared."}, status=400)
+
         try:
             card = BingoCard.objects.get(owner=request.user, room=session.room)
         except BingoCard.DoesNotExist:
@@ -77,37 +80,17 @@ class GameSessionViewSet(viewsets.ModelViewSet):
 
         for row in matrix:
             if all(num in numbers_drawn or num == 0 for num in row):
-                GameAuditLog.objects.create(
-                    session=session,
-                    actor=request.user,
-                    action="BINGO valid by row"
-                )
-                return Response({"detail": "BINGO! Valid row."}, status=200)
+                return self._declare_winner(session, request.user, card, "row")
 
         for col in zip(*matrix):
             if all(num in numbers_drawn or num == 0 for num in col):
-                GameAuditLog.objects.create(
-                    session=session,
-                    actor=request.user,
-                    action="BINGO valid by column"
-                )
-                return Response({"detail": "BINGO! Valid column."}, status=200)
+                return self._declare_winner(session, request.user, card, "column")
 
         if all(matrix[i][i] in numbers_drawn or matrix[i][i] == 0 for i in range(5)):
-            GameAuditLog.objects.create(
-                session=session,
-                actor=request.user,
-                action="BINGO valid by main diagonal"
-            )
-            return Response({"detail": "BINGO! Valid main diagonal."}, status=200)
+            return self._declare_winner(session, request.user, card, "main diagonal")
 
         if all(matrix[i][4 - i] in numbers_drawn or matrix[i][4 - i] == 0 for i in range(5)):
-            GameAuditLog.objects.create(
-                session=session,
-                actor=request.user,
-                action="BINGO valid by anti-diagonal"
-            )
-            return Response({"detail": "BINGO! Valid anti-diagonal."}, status=200)
+            return self._declare_winner(session, request.user, card, "anti-diagonal")
 
         GameAuditLog.objects.create(
             session=session,
@@ -116,6 +99,20 @@ class GameSessionViewSet(viewsets.ModelViewSet):
         )
 
         return Response({"detail": "BINGO is not valid."}, status=400)
+
+    def _declare_winner(self, session, user, card, pattern):
+        session.winner = user
+        session.winning_card = card
+        session.is_active = False
+        session.save()
+
+        GameAuditLog.objects.create(
+            session=session,
+            actor=user,
+            action=f"🎉 BINGO VALIDATED — WINNER by {pattern}"
+        )
+
+        return Response({"detail": f"🎉 BINGO! You are the winner by {pattern}."}, status=200)
 
 class DrawnNumberViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = DrawnNumber.objects.all()
