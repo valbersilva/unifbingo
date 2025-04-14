@@ -151,10 +151,122 @@ Logs are created automatically for all role changes.
 
 ---
 
+## 🏠 Bingo Room API
+
+Base URL: `/api/bingo-rooms/`
+
+### Create room *(host or admin only)*
+**POST** `/api/bingo-rooms/`
+
+### List all rooms
+**GET** `/api/bingo-rooms/`
+
+---
+
+## 🎟️ Bingo Card API
+
+Base URL: `/api/bingo-cards/`
+
+### Create bingo card *(only if user is in the room)*
+**POST** `/api/bingo-cards/`
+```json
+{
+  "room": "<room-uuid>"
+}
+```
+
+### List user bingo cards
+**GET** `/api/bingo-cards/`
+
+---
+
+## 🙋 Room Participation API
+
+### Join a room *(player only, and only one room at a time)*
+**POST** `/api/join-room/`
+```json
+{
+  "room": "<room-uuid>"
+}
+```
+
+### Leave current room
+**DELETE** `/api/leave-room/`
+
+### Get current room
+**GET** `/api/my-room/`
+
+All of these actions are logged in the audit system.
+
+---
+
+## 🎮 Game Session API
+
+Base URL: `/api/game-sessions/`
+
+### Create game session
+**POST** `/api/game-sessions/`
+```json
+{
+  "room": "<room-uuid>"
+}
+```
+
+### List all sessions
+**GET** `/api/game-sessions/`
+
+### Draw next number *(automatic, non-repeating)*
+**POST** `/api/game-sessions/{session_id}/draw-next/`
+
+**Response**
+```json
+{
+  "id": "draw-uuid",
+  "session": "game-session-id",
+  "number": 42,
+  "drawn_at": "2025-04-13T23:45:00Z"
+}
+```
+
+---
+
+## 🔢 Drawn Numbers API
+
+Base URL: `/api/drawn-numbers/`
+
+### List all numbers for a session
+**GET** `/api/drawn-numbers/?session={session_id}`
+
+---
+
+## 🧾 Game Audit Log API
+
+Base URL: `/api/game-audit-logs/`
+
+### List all logs for a session
+**GET** `/api/game-audit-logs/?session={session_id}`
+
+**Response**
+```json
+[
+  {
+    "id": "log-id",
+    "session": "game-session-id",
+    "actor_username": "host123",
+    "action": "Drew number 42",
+    "timestamp": "2025-04-13T23:45:00Z"
+  }
+]
+```
+
+This log is isolated from user audit and tracks only game events.
+
+---
+
 ## 📂 Project Structure (simplificado)
 
 ```
-bingo_backend/
+unifbingo/
 ├── bingo_backend/        # Projeto Django
 │   ├── settings.py
 │   ├── urls.py
@@ -164,18 +276,26 @@ bingo_backend/
 │   ├── serializers.py
 │   ├── permissions.py
 │   ├── urls.py
-├── db.sqlite3
+├── bingo_room/
+│   ├── models.py         # BingoRoom, BingoCard, RoomParticipant
+│   ├── views.py          # BingoRoomViewSet, BingoCardViewSet, Join/Leave/MyRoom
+│   ├── serializers.py    # Inclui RoomParticipantSerializer
+│   ├── permissions.py    # IsHostOrAdmin
+│   └── urls.py
+├── game_session/
+│   ├── models.py         # GameSession, DrawnNumber, GameAuditLog
+│   ├── views.py          # Sorteio e controle de partida
+│   ├── serializers.py
+│   └── urls.py
 ```
 
 ---
 
 ## ✅ Todo (futuro)
 
-- [ ] Sala de bingo (modelo e API)
-- [ ] Geração de cartelas únicas com hash
-- [ ] Participação em partidas
-- [ ] Anúncio dos números sorteados
-- [ ] Validação de bingo e histórico de partidas
+- [ ] Validação automática de bingo
+- [ ] Registro de partidas
+- [ ] Ranking e estatísticas
 
 ---
 

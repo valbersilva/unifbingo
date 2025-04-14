@@ -40,6 +40,8 @@ INSTALLED_APPS = [
     'rest_framework',
     'users',
     'rest_framework.authtoken',
+    'bingo_room',
+    'game_session',
 ]
 
 MIDDLEWARE = [
