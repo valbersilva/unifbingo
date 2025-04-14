@@ -357,9 +357,9 @@ unifbingo/
 # Contact Information
 
 ```
-Desenvolvido para:
+Developed for:
 UniFBV Wyden <>
-Desenvolvido por: Valber Silva <valber.l.p.silva@gmail.com>
+Developed by: Valber Silva <valber.l.p.silva@gmail.com>
 
 README Author: Valber Silva <valber.l.p.silva@gmail.com>
 ```
