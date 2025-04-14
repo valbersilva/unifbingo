@@ -243,12 +243,18 @@ Base URL: `/api/game-sessions/`
 
 **Responses**
 ```json
-{ "detail": "BINGO! Valid row." }
-{ "detail": "BINGO! Valid column." }
-{ "detail": "BINGO! Valid main diagonal." }
-{ "detail": "BINGO! Valid anti-diagonal." }
+{ "detail": "🎉 BINGO! You are the winner by row." }
+{ "detail": "🎉 BINGO! You are the winner by column." }
+{ "detail": "🎉 BINGO! You are the winner by main diagonal." }
+{ "detail": "🎉 BINGO! You are the winner by anti-diagonal." }
 { "detail": "BINGO is not valid." }
+{ "detail": "A winner has already been declared." }
 ```
+
+**Notas:**
+- Ao detectar o primeiro BINGO válido, o sistema encerra automaticamente a sessão (`is_active = False`)
+- Armazena o usuário e a cartela vencedora nos campos `winner` e `winning_card`
+- Registra log no `GameAuditLog`
 
 ---
 
@@ -306,7 +312,7 @@ unifbingo/
 │   └── urls.py
 ├── game_session/
 │   ├── models.py         # GameSession, DrawnNumber, GameAuditLog
-│   ├── views.py          # Sorteio, encerramento e validação de bingo
+│   ├── views.py          # Sorteio, encerramento e validação de bingo com vitória
 │   ├── serializers.py
 │   └── urls.py
 ```
@@ -315,8 +321,8 @@ unifbingo/
 
 ## ✅ Todo (futuro)
 
-- [ ] Registro de partidas
-- [ ] Ranking e estatísticas
+- [ ] Registro histórico de partidas completas
+- [ ] Ranking e estatísticas por jogador
 
 ---
 
