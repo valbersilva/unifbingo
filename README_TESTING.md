@@ -1,7 +1,7 @@
 # 🧪 UniFBingo - Automated Testing Guide
 
 This document explains how to run and maintain the test suite for the UniFBingo backend.
-It includes setup, coverage, organization, and test conventions.
+It includes setup, coverage, organization, test conventions, and usage of both `unittest` and `pytest`.
 
 ---
 
@@ -22,26 +22,66 @@ Install the required packages:
 pip install -r requirements.txt
 ```
 
+Optional: Install `pytest` and Django plugin for advanced usage:
+```bash
+pip install pytest pytest-django
+```
+
 ---
 
-## 🧪 Running All Tests
+## 🧪 Running All Tests (Default - Django)
 
 To execute all tests across all apps:
 ```bash
 python manage.py test
 ```
 
-You can run tests for a specific app:
+Run tests for a specific app:
 ```bash
 python manage.py test users
 python manage.py test bingo_room
 python manage.py test game_session
 ```
 
-To run tests in verbose mode:
+Verbose output:
 ```bash
 python manage.py test -v 2
 ```
+
+---
+
+## 🧪 Running Tests with Pytest
+
+First, create a `pytest.ini` file at the root of the Django project:
+```ini
+[pytest]
+DJANGO_SETTINGS_MODULE = bingo_backend.settings
+python_files = tests.py test_*.py *_tests.py
+```
+
+To run all tests using pytest:
+```bash
+pytest
+```
+
+To run tests for a specific app:
+```bash
+pytest users/
+pytest bingo_room/
+pytest game_session/
+```
+
+Use verbose and coverage flags:
+```bash
+pytest -v --tb=short
+pytest --cov=. --cov-report=term-missing
+```
+
+Pytest supports advanced fixtures and plugins, including:
+- `pytest-django`
+- `pytest-cov`
+- `pytest-mock`
+- `pytest-xdist`
 
 ---
 
@@ -51,16 +91,16 @@ python manage.py test -v 2
 users/
 ├── tests.py        # User auth, registration, permissions
 
-bingo_room/
-├── tests.py        # Room creation, participation, cards
-
 game_session/
 ├── tests.py        # Game session, draw, bingo validation, history
+
+bingo_room/
+├── tests.py        # Room creation, participation, cards
 ```
 
 ---
 
-## 🧪 Test Coverage (implemented)
+## 🧪 Test Coverage (Implemented)
 
 ### users/tests.py
 - ✅ User creation (public access)
@@ -104,6 +144,14 @@ def test_player_cannot_access_admin_routes(self):
     ...
 ```
 
+Pytest-friendly tests can be separated into `test_*.py` files and use fixtures:
+```python
+@pytest.mark.django_db
+def test_card_creation(client, django_user_model):
+    user = django_user_model.objects.create_user(username='u', password='p')
+    ...
+```
+
 ---
 
 ## 🧹 Tips
@@ -120,6 +168,7 @@ def test_player_cannot_access_admin_routes(self):
 To re-run failing tests with detailed output:
 ```bash
 python manage.py test -v 2
+pytest -v
 ```
 
 Use breakpoints (`import pdb; pdb.set_trace()`) to pause test execution.
@@ -145,3 +194,4 @@ Developed by: Valber Silva <valber.l.p.silva@gmail.com>
 Tests Author: Valber Silva <valber.l.p.silva@gmail.com>
 
 README Author: Valber Silva <valber.l.p.silva@gmail.com>
+
