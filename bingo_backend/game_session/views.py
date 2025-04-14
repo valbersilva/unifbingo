@@ -40,7 +40,6 @@ class GameSessionViewSet(viewsets.ModelViewSet):
     def end_session(self, request, pk=None):
         session = get_object_or_404(GameSession, pk=pk)
 
-        # Apenas o criador da sala pode encerrar
         if request.user != session.room.created_by and request.user.role != 'admin':
             return Response({"detail": "Only the creator of the room or an admin can end this session."},
                             status=status.HTTP_403_FORBIDDEN)
@@ -59,6 +58,64 @@ class GameSessionViewSet(viewsets.ModelViewSet):
 
         return Response({"detail": "Game session successfully ended."}, status=status.HTTP_200_OK)
 
+    @action(detail=True, methods=['post'], url_path='validate-bingo')
+    def validate_bingo(self, request, pk=None):
+        from bingo_room.models import BingoCard
+
+        session = get_object_or_404(GameSession, pk=pk)
+
+        if not session.is_active:
+            return Response({"detail": "Game session is already ended."}, status=400)
+
+        try:
+            card = BingoCard.objects.get(owner=request.user, room=session.room)
+        except BingoCard.DoesNotExist:
+            return Response({"detail": "You do not have a card in this room."}, status=404)
+
+        numbers_drawn = set(session.draws.values_list('number', flat=True))
+        matrix = card.numbers
+
+        for row in matrix:
+            if all(num in numbers_drawn or num == 0 for num in row):
+                GameAuditLog.objects.create(
+                    session=session,
+                    actor=request.user,
+                    action="BINGO valid by row"
+                )
+                return Response({"detail": "BINGO! Valid row."}, status=200)
+
+        for col in zip(*matrix):
+            if all(num in numbers_drawn or num == 0 for num in col):
+                GameAuditLog.objects.create(
+                    session=session,
+                    actor=request.user,
+                    action="BINGO valid by column"
+                )
+                return Response({"detail": "BINGO! Valid column."}, status=200)
+
+        if all(matrix[i][i] in numbers_drawn or matrix[i][i] == 0 for i in range(5)):
+            GameAuditLog.objects.create(
+                session=session,
+                actor=request.user,
+                action="BINGO valid by main diagonal"
+            )
+            return Response({"detail": "BINGO! Valid main diagonal."}, status=200)
+
+        if all(matrix[i][4 - i] in numbers_drawn or matrix[i][4 - i] == 0 for i in range(5)):
+            GameAuditLog.objects.create(
+                session=session,
+                actor=request.user,
+                action="BINGO valid by anti-diagonal"
+            )
+            return Response({"detail": "BINGO! Valid anti-diagonal."}, status=200)
+
+        GameAuditLog.objects.create(
+            session=session,
+            actor=request.user,
+            action="Invalid BINGO attempt"
+        )
+
+        return Response({"detail": "BINGO is not valid."}, status=400)
 
 class DrawnNumberViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = DrawnNumber.objects.all()
@@ -70,7 +127,6 @@ class DrawnNumberViewSet(viewsets.ReadOnlyModelViewSet):
         if session_id:
             return self.queryset.filter(session__id=session_id)
         return self.queryset.none()
-
 
 class GameAuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = GameAuditLog.objects.all()
