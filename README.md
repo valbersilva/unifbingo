@@ -33,7 +33,7 @@ source venv/bin/activate  # Linux/macOS
 pip install -r requirements.txt
 ```
 
-(ou manualmente)
+(or manually)
 ```bash
 pip install django djangorestframework
 ```
@@ -161,6 +161,11 @@ Base URL: `/api/bingo-rooms/`
 ### List all rooms
 **GET** `/api/bingo-rooms/`
 
+### New Features:
+- Rooms are **automatically closed** when a game session starts. No new participants can join a closed room.
+- Rooms can be **manually deleted** by their creator using `DELETE /api/delete-room/<room-uuid>/` if no game session is active.
+- If a room becomes **empty** and has **no active game session**, it is **automatically deleted**.
+
 ---
 
 ## 🎟️ Bingo Card API
@@ -198,6 +203,9 @@ Base URL: `/api/bingo-cards/`
 
 All of these actions are logged in the audit system.
 
+> If a room is closed, join requests will be rejected.
+> If all users leave and no active session exists, the room is deleted automatically.
+
 ---
 
 ## 🎮 Game Session API
@@ -211,6 +219,7 @@ Base URL: `/api/game-sessions/`
   "room": "<room-uuid>"
 }
 ```
+> Creating a session automatically closes the associated room.
 
 ### List all sessions
 **GET** `/api/game-sessions/`
@@ -251,11 +260,11 @@ Base URL: `/api/game-sessions/`
 { "detail": "A winner has already been declared." }
 ```
 
-**Notas:**
-- Ao detectar o primeiro BINGO válido, o sistema encerra automaticamente a sessão (`is_active = False`)
-- Armazena o usuário e a cartela vencedora nos campos `winner` e `winning_card`
-- Registra log no `GameAuditLog`
-- Cria automaticamente um `GameHistory` com todos os detalhes da sessão
+**Notes:**
+- When a valid BINGO is found, the system automatically ends the session (`is_active = False`)
+- The winner and winning card are saved in `winner` and `winning_card`
+- An entry is added to `GameAuditLog`
+- A new record is created in `GameHistory` with session details
 
 ---
 
@@ -316,19 +325,19 @@ Base URL: `/api/game-history/`
 ]
 ```
 
-Esse histórico é criado automaticamente ao final de cada partida.
+This history is created automatically at the end of each game session.
 
 ---
 
-## 📂 Project Structure (simplificado)
+## 📂 Project Structure (simplified)
 
 ```
 unifbingo/
-├── bingo_backend/        # Projeto Django
+├── bingo_backend/        # Django Project
 │   ├── settings.py
 │   ├── urls.py
-├── users/                # App principal
-│   ├── models.py         # User e AuditLog
+├── users/                # User management
+│   ├── models.py         # User and AuditLog
 │   ├── views.py          # UserViewSet, Auth, AuditLogViewSet
 │   ├── serializers.py
 │   ├── permissions.py
@@ -336,21 +345,21 @@ unifbingo/
 ├── bingo_room/
 │   ├── models.py         # BingoRoom, BingoCard, RoomParticipant
 │   ├── views.py          # BingoRoomViewSet, BingoCardViewSet, Join/Leave/MyRoom
-│   ├── serializers.py    # Inclui RoomParticipantSerializer
+│   ├── serializers.py    # Includes RoomParticipantSerializer
 │   ├── permissions.py    # IsHostOrAdmin
 │   └── urls.py
 ├── game_session/
 │   ├── models.py         # GameSession, DrawnNumber, GameAuditLog, GameHistory
-│   ├── views.py          # Sorteio, encerramento, validação de bingo, histórico
+│   ├── views.py          # Drawing, ending, bingo validation, history
 │   ├── serializers.py
 │   └── urls.py
 ```
 
 ---
 
-## ✅ Todo (futuro)
+## ✅ Todo (future)
 
-- [ ] Ranking e estatísticas por jogador
+- [ ] Ranking and player statistics
 
 ---
 
@@ -363,3 +372,4 @@ Developed by: Valber Silva <valber.l.p.silva@gmail.com>
 
 README Author: Valber Silva <valber.l.p.silva@gmail.com>
 ```
+
