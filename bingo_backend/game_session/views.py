@@ -18,6 +18,20 @@ class GameSessionViewSet(viewsets.ModelViewSet):
     serializer_class = GameSessionSerializer
     permission_classes = [IsAuthenticated]
 
+    def perform_create(self, serializer):
+        session = serializer.save()
+
+        # FECHA AUTOMATICAMENTE A SALA
+        room = session.room
+        room.is_closed = True
+        room.save()
+
+        GameAuditLog.objects.create(
+            session=session,
+            actor=self.request.user,
+            action="Game session started — room closed"
+        )
+
     @action(detail=True, methods=['post'], url_path='draw-next')
     def draw_next_number(self, request, pk=None):
         session = get_object_or_404(GameSession, pk=pk)

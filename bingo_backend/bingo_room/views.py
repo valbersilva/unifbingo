@@ -8,6 +8,7 @@ from .models import BingoRoom, BingoCard, RoomParticipant
 from .serializers import BingoRoomSerializer, BingoCardSerializer
 from .permissions import IsHostOrAdmin
 from users.models import AuditLog
+from game_session.models import GameSession  # necessário para verificar sessões ativas
 
 
 class BingoRoomViewSet(viewsets.ModelViewSet):
@@ -21,6 +22,7 @@ class BingoRoomViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         room = serializer.save(created_by=self.request.user)
+        RoomParticipant.objects.create(user=self.request.user, room=room)
         AuditLog.objects.create(
             actor=self.request.user,
             action=f"Created Bingo Room with code {room.room_code}",
@@ -64,6 +66,9 @@ class JoinRoomAPIView(APIView):
         room_id = request.data.get("room")
         room = get_object_or_404(BingoRoom, id=room_id)
 
+        if room.is_closed:
+            return Response({"detail": "Room is closed."}, status=status.HTTP_403_FORBIDDEN)
+
         if RoomParticipant.objects.filter(user=request.user).exists():
             return Response({"detail": "User already in a room."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -80,8 +85,23 @@ class LeaveRoomAPIView(APIView):
     def delete(self, request):
         try:
             participant = RoomParticipant.objects.get(user=request.user)
+            room = participant.room
             participant.delete()
+
+            # Se a sala ficou vazia e não tem sessão ativa, exclui a sala
+            room_empty = not RoomParticipant.objects.filter(room=room).exists()
+            session_active = GameSession.objects.filter(room=room, is_active=True).exists()
+
+            if room_empty and not session_active:
+                AuditLog.objects.create(
+                    actor=request.user,
+                    action=f"Room {room.room_code} deleted automatically (empty and no active session)",
+                    target=None
+                )
+                room.delete()
+
             return Response({"detail": "User left the room."}, status=status.HTTP_204_NO_CONTENT)
+
         except RoomParticipant.DoesNotExist:
             return Response({"detail": "User is not in any room."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -98,3 +118,29 @@ class MyRoomAPIView(APIView):
             return Response({"room": BingoRoomSerializer(participant.room).data})
         except RoomParticipant.DoesNotExist:
             return Response({"room": None})
+
+
+class DeleteRoomAPIView(APIView):
+    """
+    Allows the room creator to delete a room manually, if no session is active.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, room_id):
+        room = get_object_or_404(BingoRoom, id=room_id)
+
+        if room.created_by != request.user:
+            return Response({"detail": "Only the creator can delete this room."}, status=status.HTTP_403_FORBIDDEN)
+
+        if GameSession.objects.filter(room=room, is_active=True).exists():
+            return Response({"detail": "Cannot delete room with active session."}, status=status.HTTP_400_BAD_REQUEST)
+
+        room.delete()
+
+        AuditLog.objects.create(
+            actor=request.user,
+            action=f"Room {room.room_code} manually deleted by creator",
+            target=None
+        )
+
+        return Response({"detail": "Room deleted successfully."}, status=status.HTTP_200_OK)

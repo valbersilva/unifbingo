@@ -23,6 +23,7 @@ class BingoRoom(models.Model):
     room_code = models.CharField(max_length=7, unique=True, default=generate_room_code)
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_rooms')
     created_at = models.DateTimeField(auto_now_add=True)
+    is_closed = models.BooleanField(default=False)  # NOVO CAMPO: indica se a sala está fechada
 
     def __str__(self):
         return self.room_code
