@@ -338,8 +338,11 @@ This history is created automatically at the end of each game session.
 ```
 unifbingo/
 ├── bingo_backend/        # Django Project
+│   ├── __init__.py
+│   ├── asgi.py
 │   ├── settings.py
 │   ├── urls.py
+│   └── wsgi.py
 ├── users/                # User management
 │   ├── models.py         # User and AuditLog
 │   ├── views.py          # UserViewSet, Auth, AuditLogViewSet
