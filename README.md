@@ -159,6 +159,10 @@ Base URL: `/api/bingo-rooms/`
 **POST** `/api/bingo-rooms/`
 
 ### List all rooms
+
+### Close room manually *(host or admin)*
+**PATCH** `/api/close-room/<room-uuid>/`
+Closes the room so that no new participants can join, even before a game session starts.
 **GET** `/api/bingo-rooms/`
 
 ### New Features:
