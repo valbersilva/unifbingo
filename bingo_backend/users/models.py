@@ -18,7 +18,7 @@ class UserManager(BaseUserManager):
 
     def create_superuser(self, email, username, password=None, **extra_fields):
         extra_fields.setdefault('is_superuser', True)
-        extra_fields.setdefault('is_admin', True)
+        extra_fields.setdefault('is_staff', True)
         return self.create_user(email, username, password, **extra_fields)
 
 
@@ -36,7 +36,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     username = models.CharField(max_length=30, unique=True)
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='player')
     is_active = models.BooleanField(default=True)
-    is_admin = models.BooleanField(default=False)
+    is_staff = models.BooleanField(default=False)  # ✅ Agora funciona corretamente
 
     objects = UserManager()
 
@@ -45,10 +45,6 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.username
-
-    @property
-    def is_staff(self):
-        return self.is_admin
 
 
 class AuditLog(models.Model):
