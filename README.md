@@ -49,6 +49,16 @@ python manage.py migrate
 python manage.py runserver
 ```
 
+### 6. Expose in your network (optional)
+```bash
+python manage.py runserver 0.0.0.0:8000
+```
+Access it from other devices via:
+```
+http://<your-local-ip>:8000/
+```
+Make sure to add the IP to `ALLOWED_HOSTS` in `settings.py`.
+
 ---
 
 ## 🔐 Authentication
@@ -94,6 +104,14 @@ Base URL: `/api/users/`
   "password": "1234"
 }
 ```
+Notes:
+- Public requests (sem token) sempre criam usuários com:
+  - `role = "player"`
+  - `is_staff = false`
+  - `is_superuser = false`
+- Staffs autenticados podem criar usuários staff
+- Admins autenticados podem criar outros admins
+- Essas ações autenticadas são registradas no `AuditLog`
 
 ### List all users *(admin only)*
 **GET** `/api/users/`
@@ -147,7 +165,7 @@ Base URL: `/api/audit-logs/`
 ]
 ```
 
-Logs are created automatically for all role changes.
+Logs are created automatically for all role changes and user creations feitas por usuários autenticados.
 
 ---
 
