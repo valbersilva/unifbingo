@@ -15,8 +15,6 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
 
     def get_permissions(self):
-        if self.action == 'create':
-            return [AllowAny()]
         return [IsAuthenticated(), IsAdmin()]
 
     @action(detail=True, methods=['patch'], permission_classes=[IsAuthenticated, IsAdmin])
