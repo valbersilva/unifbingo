@@ -15,7 +15,42 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
 
     def get_permissions(self):
+        # Permite criação sem autenticação, mas protege o resto
+        if self.action == 'create':
+            return [AllowAny()]
         return [IsAuthenticated(), IsAdmin()]
+
+    def perform_create(self, serializer):
+        request_user = self.request.user
+
+        if not request_user.is_authenticated:
+            # Caso não esteja autenticado: forçar usuário comum
+            serializer.save(
+                role='player',
+                is_staff=False,
+                is_superuser=False
+            )
+        else:
+            # Está autenticado
+            data = self.request.data
+
+            # Por padrão, qualquer usuário cria apenas player
+            role = data.get('role', 'player')
+            is_staff = data.get('is_staff', False)
+            is_superuser = data.get('is_superuser', False)
+
+            # Se não for admin, força limites:
+            if not request_user.is_superuser:
+                is_superuser = False  # só superuser pode criar outro superuser
+            if not request_user.is_staff:
+                is_staff = False  # só staff pode criar outro staff
+                role = 'player'  # forçar papel básico
+
+            serializer.save(
+                role=role,
+                is_staff=is_staff,
+                is_superuser=is_superuser
+            )
 
     @action(detail=True, methods=['patch'], permission_classes=[IsAuthenticated, IsAdmin])
     def set_role(self, request, pk=None):
