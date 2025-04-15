@@ -36,7 +36,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     username = models.CharField(max_length=30, unique=True)
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='player')
     is_active = models.BooleanField(default=True)
-    is_staff = models.BooleanField(default=False)  # ✅ Agora funciona corretamente
+    is_staff = models.BooleanField(default=False)
 
     objects = UserManager()
 
