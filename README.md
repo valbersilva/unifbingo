@@ -394,6 +394,7 @@ unifbingo/
 Developed for:
 UniFBV Wyden <>
 Developed by: Valber Silva <valber.l.p.silva@gmail.com>
+Humberto Matheus de Andrade Santana <humbertomatheuz@gmail.com>
 
 README Author: Valber Silva <valber.l.p.silva@gmail.com>
 ```
