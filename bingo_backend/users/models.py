@@ -1,61 +1,42 @@
-from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
-from django.db import models
 import uuid
+import mongoengine as me
+from datetime import datetime
 
 
-class UserManager(BaseUserManager):
-    def create_user(self, email, username, password=None, **extra_fields):
-        if not email:
-            raise ValueError("The email field is required.")
-        if not username:
-            raise ValueError("The username field is required.")
+class User(me.Document):
+    ROLE_CHOICES = ('admin', 'host', 'player')
 
-        email = self.normalize_email(email)
-        user = self.model(email=email, username=username, **extra_fields)
-        user.set_password(password)
-        user.save(using=self._db)
-        return user
+    id = me.UUIDField(primary_key=True, default=uuid.uuid4)
+    username = me.StringField(required=True, unique=True, max_length=30)
+    email = me.EmailField(required=True, unique=True)
+    password = me.StringField(required=True)
+    age = me.IntField(required=True, min_value=0)
+    phone = me.StringField(max_length=20)
+    role = me.StringField(choices=ROLE_CHOICES, default='player')
+    is_active = me.BooleanField(default=True)
+    is_staff = me.BooleanField(default=False)
+    is_superuser = me.BooleanField(default=False)
+    last_login = me.DateTimeField(default=None, null=True)
 
-    def create_superuser(self, email, username, password=None, **extra_fields):
-        extra_fields.setdefault('is_superuser', True)
-        extra_fields.setdefault('is_staff', True)
-        return self.create_user(email, username, password, **extra_fields)
-
-
-class User(AbstractBaseUser, PermissionsMixin):
-    ROLE_CHOICES = (
-        ('admin', 'Administrator'),
-        ('host', 'Host'),
-        ('player', 'Player'),
-    )
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    age = models.PositiveIntegerField()
-    email = models.EmailField(unique=True)
-    phone = models.CharField(max_length=20)
-    username = models.CharField(max_length=30, unique=True)
-    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='player')
-    is_active = models.BooleanField(default=True)
-    is_staff = models.BooleanField(default=False)
-
-    objects = UserManager()
-
-    USERNAME_FIELD = 'username'
-    REQUIRED_FIELDS = ['email']
+    meta = {
+        'collection': 'users'
+    }
 
     def __str__(self):
         return self.username
 
 
-class AuditLog(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    actor = models.ForeignKey(User, on_delete=models.CASCADE, related_name='performed_actions')
-    target = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='targeted_actions')
-    action = models.CharField(max_length=255)
-    timestamp = models.DateTimeField(auto_now_add=True)
+class AuditLog(me.Document):
+    id = me.UUIDField(primary_key=True, default=uuid.uuid4)
+    actor = me.ReferenceField(User, reverse_delete_rule=me.CASCADE)
+    target = me.ReferenceField(User, null=True, reverse_delete_rule=me.NULLIFY)
+    action = me.StringField(required=True)
+    timestamp = me.DateTimeField(default=datetime.utcnow)
 
-    class Meta:
-        ordering = ['-timestamp']
+    meta = {
+        'ordering': ['-timestamp'],
+        'collection': 'audit_logs'
+    }
 
     def __str__(self):
         return f'{self.timestamp} - {self.actor.username} - {self.action}'

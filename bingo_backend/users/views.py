@@ -2,7 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework.authtoken.views import ObtainAuthToken
+from rest_framework.views import APIView
 from rest_framework.authtoken.models import Token
 
 from .models import User, AuditLog
@@ -80,15 +80,30 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated, IsAdmin]
 
 
-class CustomAuthToken(ObtainAuthToken):
+class CustomAuthToken(APIView):
+    permission_classes = [AllowAny]
+
     def post(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=request.data, context={'request': request})
-        serializer.is_valid(raise_exception=True)
-        user = serializer.validated_data['user']
+        username = request.data.get('username')
+        password = request.data.get('password')
+
+        if not username or not password:
+            return Response({'error': 'Username and password required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(username=username)
+        except User.DoesNotExist:
+            return Response({'error': 'Invalid credentials.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        if not user.check_password(password):
+            return Response({'error': 'Invalid credentials.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Cria ou recupera token do usuário
         token, created = Token.objects.get_or_create(user=user)
+
         return Response({
             'token': token.key,
-            'user_id': user.id,
+            'user_id': str(user.id),
             'username': user.username,
             'role': user.role,
         })

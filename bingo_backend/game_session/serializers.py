@@ -1,30 +1,33 @@
 from rest_framework import serializers
-from .models import GameSession, DrawnNumber, GameAuditLog, GameHistory
 
-class GameSessionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = GameSession
-        fields = '__all__'
+class GameSessionSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    room_id = serializers.CharField()
+    created_at = serializers.DateTimeField()
+    is_active = serializers.BooleanField()
+    winner_id = serializers.CharField(allow_null=True, required=False)
+    winning_card_id = serializers.UUIDField(allow_null=True, required=False)
 
+class DrawnNumberSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    session_id = serializers.UUIDField()
+    number = serializers.IntegerField()
+    drawn_at = serializers.DateTimeField()
 
-class DrawnNumberSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = DrawnNumber
-        fields = '__all__'
+class GameAuditLogSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    session_id = serializers.UUIDField()
+    actor_id = serializers.CharField(allow_null=True)
+    action = serializers.CharField()
+    timestamp = serializers.DateTimeField()
 
-
-class GameAuditLogSerializer(serializers.ModelSerializer):
-    actor_username = serializers.CharField(source='actor.username', read_only=True)
-
-    class Meta:
-        model = GameAuditLog
-        fields = ['id', 'session', 'actor_username', 'action', 'timestamp']
-
-
-class GameHistorySerializer(serializers.ModelSerializer):
-    winner_username = serializers.CharField(source='winner.username', read_only=True)
-
-    class Meta:
-        model = GameHistory
-        fields = ['id', 'session', 'room_code', 'winner_username', 'winning_card_hash',
-                  'drawn_numbers', 'started_at', 'ended_at', 'is_completed']
+class GameHistorySerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    session_id = serializers.UUIDField()
+    room_code = serializers.CharField()
+    winner_id = serializers.CharField(allow_null=True)
+    winning_card_hash = serializers.CharField(allow_null=True)
+    drawn_numbers = serializers.ListField(child=serializers.IntegerField())
+    started_at = serializers.DateTimeField()
+    ended_at = serializers.DateTimeField()
+    is_completed = serializers.BooleanField()

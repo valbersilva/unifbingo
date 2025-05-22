@@ -1,59 +1,60 @@
 from rest_framework import serializers
 from .models import User, AuditLog
+from django.contrib.auth.hashers import make_password
 
 
-class UserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = '__all__'
-        extra_kwargs = {
-            'password': {'write_only': True},
-            'role': {'read_only': True},
-            'is_staff': {'read_only': True},
-            'is_superuser': {'read_only': True},
-        }
+class UserSerializer(serializers.Serializer):
+    id = serializers.UUIDField(read_only=True)
+    username = serializers.CharField()
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
+    age = serializers.IntegerField()
+    phone = serializers.CharField()
+    role = serializers.CharField(read_only=True)
+    is_active = serializers.BooleanField(read_only=True)
+    is_staff = serializers.BooleanField(read_only=True)
+    is_superuser = serializers.BooleanField(read_only=True)
+    last_login = serializers.DateTimeField(read_only=True, allow_null=True)
 
     def create(self, validated_data):
         request = self.context.get('request')
         password = validated_data.pop('password', None)
 
-        # Inicializa com valores padrão
+        # Valores padrão
         role = 'player'
         is_staff = False
         is_superuser = False
 
-        # Se for um request autenticado:
-        if request and request.user.is_authenticated:
+        if request and request.user and request.user.is_authenticated:
             data = request.data
             role = data.get('role', 'player')
             is_staff = data.get('is_staff', False)
             is_superuser = data.get('is_superuser', False)
 
-            # Superuser pode tudo
             if not request.user.is_superuser:
                 is_superuser = False
-
-            # Staff pode criar outros staff, mas não admin
             if not request.user.is_staff:
                 is_staff = False
                 role = 'player'
 
-        user = User(**validated_data)
-        user.role = role
-        user.is_staff = is_staff
-        user.is_superuser = is_superuser
+        hashed_password = make_password(password) if password else None
 
-        if password:
-            user.set_password(password)
+        user = User(
+            password=hashed_password,
+            role=role,
+            is_staff=is_staff,
+            is_superuser=is_superuser,
+            is_active=True,
+            **validated_data
+        )
         user.save()
 
-        # Registra no audit log se o criador for autenticado
-        if request and request.user.is_authenticated:
-            AuditLog.objects.create(
+        if request and request.user and request.user.is_authenticated:
+            AuditLog(
                 actor=request.user,
                 target=user,
                 action=f"Created user '{user.username}' with role '{user.role}'"
-            )
+            ).save()
 
         return user
 
@@ -63,18 +64,20 @@ class UserSerializer(serializers.ModelSerializer):
         validated_data.pop('is_superuser', None)
 
         password = validated_data.pop('password', None)
+
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
+
         if password:
-            instance.set_password(password)
+            instance.password = make_password(password)
+
         instance.save()
         return instance
 
 
-class AuditLogSerializer(serializers.ModelSerializer):
+class AuditLogSerializer(serializers.Serializer):
+    id = serializers.UUIDField(read_only=True)
     actor_username = serializers.CharField(source='actor.username', read_only=True)
     target_username = serializers.CharField(source='target.username', read_only=True)
-
-    class Meta:
-        model = AuditLog
-        fields = ['id', 'actor_username', 'target_username', 'action', 'timestamp']
+    action = serializers.CharField()
+    timestamp = serializers.DateTimeField()

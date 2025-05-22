@@ -1,61 +1,72 @@
-from django.db import models
-from bingo_room.models import BingoRoom, BingoCard
+from mongoengine import (
+    Document,
+    StringField,
+    ReferenceField,
+    ListField,
+    IntField,
+    BooleanField,
+    DateTimeField,
+    CASCADE,
+    DictField,
+)
+from datetime import datetime
+from bingo_room.models import BingoRoom
 from users.models import User
-import uuid
-
-class GameSession(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    room = models.OneToOneField(BingoRoom, on_delete=models.CASCADE, related_name='game_session')
-    created_at = models.DateTimeField(auto_now_add=True)
-    is_active = models.BooleanField(default=True)
-    winner = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='won_sessions')
-    winning_card = models.ForeignKey(BingoCard, null=True, blank=True, on_delete=models.SET_NULL, related_name='winning_sessions')
-
-    def __str__(self):
-        return f"Game for Room {self.room.room_code}"
+from bingo_room.models import BingoCard
 
 
-class DrawnNumber(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    session = models.ForeignKey(GameSession, on_delete=models.CASCADE, related_name='draws')
-    number = models.PositiveSmallIntegerField()
-    drawn_at = models.DateTimeField(auto_now_add=True)
+class GameSession(Document):
+    room = ReferenceField(BingoRoom, reverse_delete_rule=CASCADE, required=True)
+    winner = ReferenceField(User, null=True)
+    winning_card = ReferenceField(BingoCard, null=True)
+    is_active = BooleanField(default=True)
+    created_at = DateTimeField(default=datetime.utcnow)
 
-    class Meta:
-        unique_together = ('session', 'number')
-        ordering = ['drawn_at']
+    meta = {
+        'collection': 'game_sessions',
+        'ordering': ['-created_at'],
+    }
 
-    def __str__(self):
-        return f"{self.number} in {self.session.room.room_code}"
-
-
-class GameAuditLog(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    session = models.ForeignKey(GameSession, on_delete=models.CASCADE, related_name='audit_logs')
-    actor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='game_actions')
-    action = models.TextField()
-    timestamp = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ['-timestamp']
-
-    def __str__(self):
-        return f"{self.timestamp} - {self.actor.username if self.actor else 'System'} - {self.action}"
+    @property
+    def draws(self):
+        return DrawnNumber.objects(session=self)
 
 
-class GameHistory(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    session = models.OneToOneField(GameSession, on_delete=models.CASCADE, related_name='history')
-    room_code = models.CharField(max_length=10)
-    winner = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='victory_history')
-    winning_card_hash = models.CharField(max_length=64, null=True, blank=True)
-    drawn_numbers = models.JSONField()
-    started_at = models.DateTimeField()
-    ended_at = models.DateTimeField(auto_now_add=True)
-    is_completed = models.BooleanField(default=True)
+class DrawnNumber(Document):
+    session = ReferenceField(GameSession, reverse_delete_rule=CASCADE, required=True)
+    number = IntField(min_value=1, max_value=75, required=True)
 
-    class Meta:
-        ordering = ['-ended_at']
+    meta = {
+        'collection': 'drawn_numbers',
+        'indexes': [
+            {'fields': ['session', 'number'], 'unique': True},
+        ]
+    }
 
-    def __str__(self):
-        return f"History for Room {self.room_code}"
+
+class GameAuditLog(Document):
+    session = ReferenceField(GameSession, reverse_delete_rule=CASCADE)
+    actor = ReferenceField(User)
+    action = StringField(required=True)
+    timestamp = DateTimeField(default=datetime.utcnow)
+    target = ReferenceField(User, null=True)
+
+    meta = {
+        'collection': 'game_audit_logs',
+        'ordering': ['-timestamp'],
+    }
+
+
+class GameHistory(Document):
+    session = ReferenceField(GameSession, reverse_delete_rule=CASCADE)
+    room_code = StringField(required=True)
+    winner = ReferenceField(User)
+    winning_card_hash = StringField(null=True)
+    drawn_numbers = ListField(IntField())
+    started_at = DateTimeField()
+    is_completed = BooleanField(default=False)
+
+    meta = {
+        'collection': 'game_history',
+        'ordering': ['-started_at'],
+    }
