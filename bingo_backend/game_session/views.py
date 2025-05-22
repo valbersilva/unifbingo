@@ -1,180 +1,109 @@
+# game_session/views.py
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
-from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from django.shortcuts import get_object_or_404
+from rest_framework.response import Response
 from .models import GameSession, DrawnNumber, GameAuditLog, GameHistory
+from bingo_room.models import BingoRoom, BingoCard
 from .serializers import (
-    GameSessionSerializer,
-    DrawnNumberSerializer,
-    GameAuditLogSerializer,
-    GameHistorySerializer
+    GameSessionSerializer, DrawnNumberSerializer, GameAuditLogSerializer, GameHistorySerializer
 )
 import random
+import uuid
+from datetime import datetime
 
-
-class GameSessionViewSet(viewsets.ModelViewSet):
-    queryset = GameSession.objects.all()
-    serializer_class = GameSessionSerializer
+class GameSessionViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
 
-    def perform_create(self, serializer):
-        session = serializer.save()
+    def list(self, request):
+        sessions = GameSession.objects.all()
+        serializer = GameSessionSerializer(sessions, many=True)
+        return Response(serializer.data)
 
-        # FECHA AUTOMATICAMENTE A SALA
-        room = session.room
+    def create(self, request):
+        room_id = request.data.get("room")
+        if not room_id:
+            return Response({"detail": "room field is required"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            room = BingoRoom.objects.get(id=room_id)
+        except BingoRoom.DoesNotExist:
+            return Response({"detail": "Room not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        session = GameSession(room_id=str(room.id))
+        session.save()
+
+        # Fecha a sala automaticamente
         room.is_closed = True
         room.save()
 
-        GameAuditLog.objects.create(
-            session=session,
-            actor=self.request.user,
+        # Cria log
+        GameAuditLog(
+            session_id=session.id,
+            actor_id=str(request.user.id),
             action="Game session started — room closed"
-        )
+        ).save()
+
+        serializer = GameSessionSerializer(session)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['post'], url_path='draw-next')
     def draw_next_number(self, request, pk=None):
-        session = get_object_or_404(GameSession, pk=pk)
+        try:
+            session = GameSession.objects.get(id=pk)
+        except GameSession.DoesNotExist:
+            return Response({"detail": "Game session not found."}, status=status.HTTP_404_NOT_FOUND)
         if not session.is_active:
-            return Response({"detail": "This game session is not active."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "Game session is not active."}, status=status.HTTP_400_BAD_REQUEST)
 
-        drawn_numbers = DrawnNumber.objects.filter(session=session).values_list('number', flat=True)
-        all_numbers = set(range(1, 76))
-        remaining_numbers = list(all_numbers - set(drawn_numbers))
+        drawn_numbers = DrawnNumber.objects(session_id=session.id).only('number')
+        drawn_set = {dn.number for dn in drawn_numbers}
 
-        if not remaining_numbers:
-            return Response({"detail": "All numbers have already been drawn."}, status=status.HTTP_400_BAD_REQUEST)
+        available_numbers = set(range(1, 76)) - drawn_set
+        if not available_numbers:
+            return Response({"detail": "No more numbers to draw."}, status=status.HTTP_400_BAD_REQUEST)
 
-        number = random.choice(remaining_numbers)
-        draw = DrawnNumber.objects.create(session=session, number=number)
+        number = random.choice(list(available_numbers))
+        drawn_number = DrawnNumber(session_id=session.id, number=number)
+        drawn_number.save()
 
-        GameAuditLog.objects.create(
-            session=session,
-            actor=request.user,
-            action=f"Drew number {number}"
-        )
+        # Log
+        GameAuditLog(session_id=session.id, actor_id=str(request.user.id), action=f"Number drawn: {number}").save()
 
-        return Response(DrawnNumberSerializer(draw).data, status=status.HTTP_201_CREATED)
+        serializer = DrawnNumberSerializer(drawn_number)
+        return Response(serializer.data)
 
     @action(detail=True, methods=['post'], url_path='end')
     def end_session(self, request, pk=None):
-        session = get_object_or_404(GameSession, pk=pk)
-
-        if request.user != session.room.created_by and request.user.role != 'admin':
-            return Response({"detail": "Only the creator of the room or an admin can end this session."},
-                            status=status.HTTP_403_FORBIDDEN)
-
-        if not session.is_active:
-            return Response({"detail": "This session is already ended."}, status=status.HTTP_400_BAD_REQUEST)
-
-        session.is_active = False
-        session.save()
-
-        GameAuditLog.objects.create(
-            session=session,
-            actor=request.user,
-            action="Ended the game session"
-        )
-
-        self._save_history(session)
-
-        return Response({"detail": "Game session successfully ended."}, status=status.HTTP_200_OK)
-
-    @action(detail=True, methods=['post'], url_path='validate-bingo')
-    def validate_bingo(self, request, pk=None):
-        from bingo_room.models import BingoCard
-
-        session = get_object_or_404(GameSession, pk=pk)
-
-        if not session.is_active:
-            return Response({"detail": "Game session is already ended."}, status=400)
-
-        if session.winner:
-            return Response({"detail": "A winner has already been declared."}, status=400)
-
         try:
-            card = BingoCard.objects.get(owner=request.user, room=session.room)
-        except BingoCard.DoesNotExist:
-            return Response({"detail": "You do not have a card in this room."}, status=404)
+            session = GameSession.objects.get(id=pk)
+        except GameSession.DoesNotExist:
+            return Response({"detail": "Game session not found."}, status=status.HTTP_404_NOT_FOUND)
+        if not session.is_active:
+            return Response({"detail": "Game session already ended."}, status=status.HTTP_400_BAD_REQUEST)
 
-        numbers_drawn = set(session.draws.values_list('number', flat=True))
-        matrix = card.numbers
+        winner_id = request.data.get("winner_id")
+        winning_card_id = request.data.get("winning_card_id")
 
-        for row in matrix:
-            if all(num in numbers_drawn or num == 0 for num in row):
-                return self._declare_winner(session, request.user, card, "row")
-
-        for col in zip(*matrix):
-            if all(num in numbers_drawn or num == 0 for num in col):
-                return self._declare_winner(session, request.user, card, "column")
-
-        if all(matrix[i][i] in numbers_drawn or matrix[i][i] == 0 for i in range(5)):
-            return self._declare_winner(session, request.user, card, "main diagonal")
-
-        if all(matrix[i][4 - i] in numbers_drawn or matrix[i][4 - i] == 0 for i in range(5)):
-            return self._declare_winner(session, request.user, card, "anti-diagonal")
-
-        GameAuditLog.objects.create(
-            session=session,
-            actor=request.user,
-            action="Invalid BINGO attempt"
-        )
-
-        return Response({"detail": "BINGO is not valid."}, status=400)
-
-    def _declare_winner(self, session, user, card, pattern):
-        session.winner = user
-        session.winning_card = card
         session.is_active = False
+        session.winner_id = winner_id
+        session.winning_card_id = winning_card_id
         session.save()
 
-        GameAuditLog.objects.create(
-            session=session,
-            actor=user,
-            action=f"🎉 BINGO VALIDATED — WINNER by {pattern}"
-        )
+        # Salvar histórico da partida
+        drawn_numbers = DrawnNumber.objects(session_id=session.id)
+        drawn_nums_list = [dn.number for dn in drawn_numbers]
 
-        self._save_history(session)
-
-        return Response({"detail": f"🎉 BINGO! You are the winner by {pattern}."}, status=200)
-
-    def _save_history(self, session):
-        GameHistory.objects.create(
-            session=session,
-            room_code=session.room.room_code,
-            winner=session.winner,
-            winning_card_hash=session.winning_card.card_hash if session.winning_card else None,
-            drawn_numbers=list(session.draws.values_list('number', flat=True)),
+        GameHistory(
+            session_id=session.id,
+            room_code="",  # Pode preencher com room_code se quiser
+            winner_id=winner_id,
+            winning_card_hash="",  # Buscar hash do cartão se necessário
+            drawn_numbers=drawn_nums_list,
             started_at=session.created_at,
+            ended_at=datetime.utcnow(),
             is_completed=True
-        )
+        ).save()
 
+        GameAuditLog(session_id=session.id, actor_id=str(request.user.id), action="Game session ended").save()
 
-class DrawnNumberViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = DrawnNumber.objects.all()
-    serializer_class = DrawnNumberSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        session_id = self.request.query_params.get('session')
-        if session_id:
-            return self.queryset.filter(session__id=session_id)
-        return self.queryset.none()
-
-
-class GameAuditLogViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = GameAuditLog.objects.all()
-    serializer_class = GameAuditLogSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        session_id = self.request.query_params.get('session')
-        if session_id:
-            return self.queryset.filter(session__id=session_id)
-        return self.queryset.none()
-
-
-class GameHistoryViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = GameHistory.objects.all()
-    serializer_class = GameHistorySerializer
-    permission_classes = [IsAuthenticated]
+        return Response({"detail": "Game session ended."})

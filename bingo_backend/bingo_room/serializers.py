@@ -1,24 +1,21 @@
 from rest_framework import serializers
-from .models import BingoRoom, BingoCard, RoomParticipant
 
+class RoomParticipantSerializer(serializers.Serializer):
+    user_id = serializers.CharField()
+    username = serializers.CharField()
+    joined_at = serializers.DateTimeField()
 
-class BingoRoomSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = BingoRoom
-        fields = ['id', 'room_code', 'created_by', 'created_at', 'is_closed']
-        read_only_fields = ['room_code', 'created_by', 'created_at', 'is_closed']
+class BingoCardSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    room = serializers.CharField()
+    owner_id = serializers.CharField()
+    numbers = serializers.ListField(child=serializers.ListField(child=serializers.IntegerField()))
+    card_hash = serializers.CharField()
 
-
-class BingoCardSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = BingoCard
-        fields = ['id', 'card_hash', 'room', 'owner', 'numbers', 'created_at']
-        read_only_fields = ['card_hash', 'numbers', 'created_at', 'owner']
-
-
-class RoomParticipantSerializer(serializers.ModelSerializer):
-    room = BingoRoomSerializer(read_only=True)
-
-    class Meta:
-        model = RoomParticipant
-        fields = ['user', 'room', 'joined_at']
+class BingoRoomSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    room_code = serializers.CharField()
+    created_by_id = serializers.CharField()
+    participants = RoomParticipantSerializer(many=True)
+    is_closed = serializers.BooleanField()
+    created_at = serializers.DateTimeField()

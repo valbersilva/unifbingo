@@ -1,146 +1,33 @@
 from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.views import APIView
-from django.shortcuts import get_object_or_404
-
-from .models import BingoRoom, BingoCard, RoomParticipant
 from .serializers import BingoRoomSerializer, BingoCardSerializer
-from .permissions import IsHostOrAdmin
-from users.models import AuditLog
-from game_session.models import GameSession  # necessário para verificar sessões ativas
+from .models import BingoRoom, BingoCard
+import uuid
 
-
-class BingoRoomViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet for creating and listing Bingo Rooms.
-    Only hosts and admins can create.
-    """
-    queryset = BingoRoom.objects.all()
-    serializer_class = BingoRoomSerializer
-    permission_classes = [IsAuthenticated, IsHostOrAdmin]
-
-    def perform_create(self, serializer):
-        room = serializer.save(created_by=self.request.user)
-        RoomParticipant.objects.create(user=self.request.user, room=room)
-        AuditLog.objects.create(
-            actor=self.request.user,
-            action=f"Created Bingo Room with code {room.room_code}",
-            target=None
-        )
-
-
-class BingoCardViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet for generating and listing Bingo Cards.
-    Only allowed if user is in the room.
-    """
-    queryset = BingoCard.objects.all()
-    serializer_class = BingoCardSerializer
+class BingoRoomViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
 
-    def get_queryset(self):
-        return BingoCard.objects.filter(owner=self.request.user)
+    def list(self, request):
+        rooms = BingoRoom.objects.all()
+        serializer = BingoRoomSerializer(rooms, many=True)
+        return Response(serializer.data)
 
-    def perform_create(self, serializer):
-        user = self.request.user
-        room = serializer.validated_data.get('room')
+    def create(self, request):
+        # Cria a sala com room_code único simples
+        room_code = str(uuid.uuid4())[:8]
+        created_by_id = str(request.user.id)  # espere que user.id seja string ou adapte
 
+        room = BingoRoom(room_code=room_code, created_by_id=created_by_id, participants=[])
+        room.save()
+        serializer = BingoRoomSerializer(room)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def retrieve(self, request, pk=None):
         try:
-            participant = RoomParticipant.objects.get(user=user)
-            if participant.room != room:
-                raise ValueError("User must be in the selected room to generate a card.")
-        except RoomParticipant.DoesNotExist:
-            raise ValueError("User must join the room before generating a card.")
+            room = BingoRoom.objects.get(id=pk)
+        except BingoRoom.DoesNotExist:
+            return Response({"detail": "Room not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        serializer.save(owner=user)
-
-
-class JoinRoomAPIView(APIView):
-    """
-    Allows user to join a room if not already in one.
-    """
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        room_id = request.data.get("room")
-        room = get_object_or_404(BingoRoom, id=room_id)
-
-        if room.is_closed:
-            return Response({"detail": "Room is closed."}, status=status.HTTP_403_FORBIDDEN)
-
-        if RoomParticipant.objects.filter(user=request.user).exists():
-            return Response({"detail": "User already in a room."}, status=status.HTTP_400_BAD_REQUEST)
-
-        RoomParticipant.objects.create(user=request.user, room=room)
-        return Response({"detail": f"User joined room {room.room_code}."}, status=status.HTTP_200_OK)
-
-
-class LeaveRoomAPIView(APIView):
-    """
-    Allows user to leave the current room.
-    """
-    permission_classes = [IsAuthenticated]
-
-    def delete(self, request):
-        try:
-            participant = RoomParticipant.objects.get(user=request.user)
-            room = participant.room
-            participant.delete()
-
-            # Se a sala ficou vazia e não tem sessão ativa, exclui a sala
-            room_empty = not RoomParticipant.objects.filter(room=room).exists()
-            session_active = GameSession.objects.filter(room=room, is_active=True).exists()
-
-            if room_empty and not session_active:
-                AuditLog.objects.create(
-                    actor=request.user,
-                    action=f"Room {room.room_code} deleted automatically (empty and no active session)",
-                    target=None
-                )
-                room.delete()
-
-            return Response({"detail": "User left the room."}, status=status.HTTP_204_NO_CONTENT)
-
-        except RoomParticipant.DoesNotExist:
-            return Response({"detail": "User is not in any room."}, status=status.HTTP_400_BAD_REQUEST)
-
-
-class MyRoomAPIView(APIView):
-    """
-    Returns the current room of the logged-in user.
-    """
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        try:
-            participant = RoomParticipant.objects.get(user=request.user)
-            return Response({"room": BingoRoomSerializer(participant.room).data})
-        except RoomParticipant.DoesNotExist:
-            return Response({"room": None})
-
-
-class DeleteRoomAPIView(APIView):
-    """
-    Allows the room creator to delete a room manually, if no session is active.
-    """
-    permission_classes = [IsAuthenticated]
-
-    def delete(self, request, room_id):
-        room = get_object_or_404(BingoRoom, id=room_id)
-
-        if room.created_by != request.user:
-            return Response({"detail": "Only the creator can delete this room."}, status=status.HTTP_403_FORBIDDEN)
-
-        if GameSession.objects.filter(room=room, is_active=True).exists():
-            return Response({"detail": "Cannot delete room with active session."}, status=status.HTTP_400_BAD_REQUEST)
-
-        room.delete()
-
-        AuditLog.objects.create(
-            actor=request.user,
-            action=f"Room {room.room_code} manually deleted by creator",
-            target=None
-        )
-
-        return Response({"detail": "Room deleted successfully."}, status=status.HTTP_200_OK)
+        serializer = BingoRoomSerializer(room)
+        return Response(serializer.data)
