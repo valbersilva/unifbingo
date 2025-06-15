@@ -1,0 +1,9 @@
+Django>=5.2
+djangorestframework
+PyJWT
+Markdown
+django-filter
+drf-yasg
+channels
+channels_redis
+daphne

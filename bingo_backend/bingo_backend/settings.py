@@ -42,6 +42,11 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'bingo_room',
     'game_session',
+    'channels',
+    'bingo_room',
+    'game_session',
+    'users',
+    'rest_framework',
 ]
 
 MIDDLEWARE = [
@@ -73,7 +78,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'bingo_backend.wsgi.application'
-
+ASGI_APPLICATION = 'bingo_backend.asgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
@@ -134,4 +139,13 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',  # Só acessa se tiver autenticado
     ]
+}
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [('127.0.0.1', 6379)], 
+        },
+    },
 }
