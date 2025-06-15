@@ -31,8 +31,6 @@ class UserAPITestCase(APITestCase):
             "username": "newuser",
             "password": "test123",
             "email": "new@example.com",
-            "age": 30,
-            "phone": "+559999999999"
         })
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(User.objects.filter(username='newuser').exists(), True)

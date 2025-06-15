@@ -30,9 +30,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     )
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    age = models.PositiveIntegerField()
     email = models.EmailField(unique=True)
-    phone = models.CharField(max_length=20)
     username = models.CharField(max_length=30, unique=True)
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='player')
     is_active = models.BooleanField(default=True)
