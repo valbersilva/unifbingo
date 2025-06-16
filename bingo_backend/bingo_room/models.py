@@ -77,17 +77,34 @@ class BingoCard(models.Model):
 
     def generate_numbers(self):
         """
-        Generate a 5x5 bingo card matrix with numbers in columns:
-        B: 1-15, I: 16-30, N: 31-45, G: 46-60, O: 61-75
-        The center (N[2]) is a free space (0).
+        Generates a random bingo card with the standard 5x5 format.
+        Each column corresponds to a specific range of numbers:
+        - B: 1-15
+        - I: 16-30
+        - N: 31-45 (with a free space in the middle)
+        - G: 46-60
+        - O: 61-75
         """
-        card = []
-        columns = [range(1, 16), range(16, 31), range(31, 46), range(46, 61), range(61, 76)]
-        for col_range in columns:
-            column_numbers = random.sample(col_range, 5)
-            card.append(column_numbers)
-        card[2][2] = 0  # free space in the center
-        return [list(row) for row in zip(*card)]  # transpose to rows
+        card_columns = []
+        # Define os intervalos de números para cada coluna
+        ranges = [(1, 15), (16, 30), (31, 45), (46, 60), (61, 75)]
+
+        for i, col_range in enumerate(ranges):
+            # A coluna do meio (índice 2) é a coluna "N"
+            if i == 2:
+                # Gera 4 números para a coluna "N"
+                numbers = random.sample(range(col_range[0], col_range[1] + 1), 4)
+                # Adiciona o espaço livre 'X' na posição do meio
+                column = numbers[:2] + ['X'] + numbers[2:]
+            else:
+                # Gera 5 números para as outras colunas
+                column = random.sample(range(col_range[0], col_range[1] + 1), 5)
+            
+            card_columns.append(column)
+        
+        # Transpõe as colunas em linhas para formar a cartela final
+        # A função zip(*list_of_lists) é uma forma eficiente de fazer essa transposição
+        return [list(row) for row in zip(*card_columns)]
 
     def save(self, *args, **kwargs):
         if not self.numbers:
