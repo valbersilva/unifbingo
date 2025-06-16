@@ -25,7 +25,10 @@ SECRET_KEY = 'django-insecure-7iudv=7*r*gq^zuf9ag-jn7!v5lse9w9&2j%3-1cr#%$-l+ewt
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['*']  # Permite todos os hosts, ajuste conforme necessário para produção - adicionar no codigo principal
+CSRF_TRUSTED_ORIGINS = [
+    'https://*.ngrok-free.app',
+]
 
 
 # Application definition
@@ -46,6 +49,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',

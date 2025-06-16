@@ -7,6 +7,7 @@ from .views import (
     LeaveRoomAPIView,
     MyRoomAPIView,
     DeleteRoomAPIView,  # NOVO ENDPOINT
+    RoomParticipantsView,
 )
 
 router = DefaultRouter()
@@ -18,4 +19,5 @@ urlpatterns = router.urls + [
     path('leave-room/', LeaveRoomAPIView.as_view(), name='leave-room'),
     path('my-room/', MyRoomAPIView.as_view(), name='my-room'),
     path('delete-room/<uuid:room_id>/', DeleteRoomAPIView.as_view(), name='delete-room'),  # <- aqui
+    path('bingo-rooms/<str:room_code>/participants/', RoomParticipantsView.as_view(), name='room-participants'),
 ]

@@ -97,9 +97,7 @@ Base URL: `/api/users/`
 **POST** `/api/users/`
 ```json
 {
-  "age": 25,
   "email": "email@example.com",
-  "phone": "+559999999999",
   "username": "player1",
   "password": "1234"
 }
