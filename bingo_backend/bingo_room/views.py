@@ -18,7 +18,10 @@ class BingoRoomViewSet(viewsets.ModelViewSet):
     """
     queryset = BingoRoom.objects.all()
     serializer_class = BingoRoomSerializer
-    permission_classes = [IsAuthenticated, IsHostOrAdmin]
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsHostOrAdmin()]
 
     def perform_create(self, serializer):
         room = serializer.save(created_by=self.request.user)
@@ -144,3 +147,35 @@ class DeleteRoomAPIView(APIView):
         )
 
         return Response({"detail": "Room deleted successfully."}, status=status.HTTP_200_OK)
+
+
+class RoomParticipantsView(APIView):
+    """
+    Lista todos os participantes de uma sala de bingo pelo room_code.
+    O host aparece como role 'host' e os demais como 'player'.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, room_code):
+        try:
+            room = BingoRoom.objects.get(room_code=room_code)
+        except BingoRoom.DoesNotExist:
+            return Response({"detail": "Sala não encontrada."}, status=status.HTTP_404_NOT_FOUND)
+
+        participants = RoomParticipant.objects.filter(room=room)
+        data = []
+        # Adiciona o host
+        data.append({
+            "id": str(room.created_by.id),
+            "name": room.created_by.username,
+            "role": "host"
+        })
+        # Adiciona os jogadores (excluindo o host se ele também estiver em RoomParticipant)
+        for p in participants:
+            if p.user.id != room.created_by.id:
+                data.append({
+                    "id": str(p.user.id),
+                    "name": p.user.username,
+                    "role": "player"
+                })
+        return Response(data)
