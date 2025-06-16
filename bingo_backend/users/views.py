@@ -15,7 +15,7 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
 
     def get_permissions(self):
-        # Permite criação sem autenticação, mas protege o resto
+        # Allow creation without authentication, but protect all other actions
         if self.action == 'create':
             return [AllowAny()]
         return [IsAuthenticated(), IsAdmin()]
@@ -24,27 +24,27 @@ class UserViewSet(viewsets.ModelViewSet):
         request_user = self.request.user
 
         if not request_user.is_authenticated:
-            # Caso não esteja autenticado: forçar usuário comum
+            # If not authenticated: force new user as player
             serializer.save(
                 role='player',
                 is_staff=False,
                 is_superuser=False
             )
         else:
-            # Está autenticado
+            # Authenticated user creating
             data = self.request.data
 
-            # Por padrão, qualquer usuário cria apenas player
+            # By default, any user creates only players
             role = data.get('role', 'player')
             is_staff = data.get('is_staff', False)
             is_superuser = data.get('is_superuser', False)
 
-            # Se não for admin, força limites:
+            # Non-admin users cannot create staff or superusers
             if not request_user.is_superuser:
-                is_superuser = False  # só superuser pode criar outro superuser
+                is_superuser = False
             if not request_user.is_staff:
-                is_staff = False  # só staff pode criar outro staff
-                role = 'player'  # forçar papel básico
+                is_staff = False
+                role = 'player'
 
             serializer.save(
                 role=role,
@@ -54,6 +54,9 @@ class UserViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['patch'], permission_classes=[IsAuthenticated, IsAdmin])
     def set_role(self, request, pk=None):
+        """
+        Custom action to change user role.
+        """
         user = self.get_object()
         new_role = request.data.get('role')
 
@@ -72,6 +75,14 @@ class UserViewSet(viewsets.ModelViewSet):
         )
 
         return Response({'detail': f'Role updated to {new_role} successfully.'})
+
+    def retrieve(self, request, *args, **kwargs):
+        """
+        Fix for GET /api/users/{user_id}/ to avoid listing all users on detail view.
+        """
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
 
 
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
