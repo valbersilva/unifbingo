@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'bingo_room',
     'game_session',
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
@@ -56,6 +57,8 @@ MIDDLEWARE = [
 
 AUTH_USER_MODEL = 'users.User'
 ROOT_URLCONF = 'bingo_backend.urls'
+#PARA DEV
+CORS_ALLOW_ALL_ORIGINS = True
 
 TEMPLATES = [
     {
